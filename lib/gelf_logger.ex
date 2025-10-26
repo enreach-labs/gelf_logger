@@ -8,9 +8,42 @@ defmodule Logger.Backends.Gelf do
 
   ## Configuration
 
+  ### Elixir v1.19 and later
+
+  In the config.exs, configure the Gelf Logger:
+
+  ```elixir
+  config :logger, Logger.Backends.Gelf,
+    host: "127.0.0.1",
+    port: 12201,
+    format: "$message",
+    application: "myapp",
+    compression: :gzip, # Defaults to :gzip, also accepts :zlib or :raw
+    metadata: [:request_id, :function, :module, :file, :line],
+    hostname: "hostname-override",
+    json_encoder: Poison,
+    tags: [
+      list: "of",
+      extra: "tags"
+    ]
+  ```
+
+  In application.ex, add Gelf logger backend:
+
+  ```elixir
+    @impl true
+    def start(_type, _args) do
+      LoggerBackends.add(Logger.Backends.Gelf)
+
+      #...
+    end
+  ```
+
+  ### Pre-Elixir v1.19
+
   In the config.exs, add gelf_logger as a backend like this:
 
-  ```
+  ```elixir
   config :logger,
     backends: [:console, {Logger.Backends.Gelf, :gelf_logger}]
   ```
@@ -18,7 +51,7 @@ defmodule Logger.Backends.Gelf do
   In addition, you'll need to pass in some configuration items to the backend
   itself:
 
-  ```
+  ```elixir
   config :logger, :gelf_logger,
     host: "127.0.0.1",
     port: 12201,
@@ -84,6 +117,17 @@ defmodule Logger.Backends.Gelf do
 
   @behaviour :gen_event
 
+  @impl true
+  def init(name) when is_atom(name) do
+    if user = Process.whereis(:user) do
+      Process.group_leader(self(), user)
+      {:ok, configure(name, Application.get_env(:logger, name, []))}
+    else
+      {:error, :ignore}
+    end
+  end
+
+  # Pre-Elixir v1.19 compatibility
   def init({__MODULE__, name}) do
     if user = Process.whereis(:user) do
       Process.group_leader(self(), user)
@@ -93,10 +137,12 @@ defmodule Logger.Backends.Gelf do
     end
   end
 
+  @impl true
   def handle_call({:configure, options}, state) do
     {:ok, :ok, configure(state[:name], options)}
   end
 
+  @impl true
   def handle_event({_level, gl, _event}, state) when node(gl) != node() do
     {:ok, state}
   end
@@ -113,6 +159,7 @@ defmodule Logger.Backends.Gelf do
     {:ok, state}
   end
 
+  @impl true
   def handle_info({:io_reply, ref, :ok}, %{ref: ref} = state) do
     Process.demonitor(ref, [:flush])
     {:ok, state}
@@ -130,10 +177,12 @@ defmodule Logger.Backends.Gelf do
     {:ok, state}
   end
 
+  @impl true
   def code_change(_old_vsn, state, _extra) do
     {:ok, state}
   end
 
+  @impl true
   def terminate(_reason, _state) do
     :ok
   end
