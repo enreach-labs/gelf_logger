@@ -115,7 +115,7 @@ defmodule Logger.Backends.Gelf do
   def init(name) when is_atom(name) do
     if user = Process.whereis(:user) do
       Process.group_leader(self(), user)
-      {:ok, configure(name, Application.get_env(:logger, name, []))}
+      {:ok, GelfLogger.Config.configure(name, Application.get_env(:logger, name, []))}
     else
       {:error, :ignore}
     end
