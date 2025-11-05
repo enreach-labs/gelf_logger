@@ -79,6 +79,13 @@ defmodule Logger.Backends.GelfAsync do
 
   @behaviour :gen_event
 
+  def init(name) when is_atom(name) do
+    config = Application.get_env(:logger, name, [])
+    GelfLogger.Balancer.configure(name, config)
+    log_level = GelfLogger.Config.get_loglevel(name, config)
+    {:ok, %{name: name, level: log_level}}
+  end
+
   def init({_module, name}) do
     GelfLogger.Balancer.configure(name, [])
     log_level = GelfLogger.Config.get_loglevel(name, [])
